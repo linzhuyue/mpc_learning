@@ -1,0 +1,96 @@
+close all
+clear
+clc
+%system info
+Ts=0.2; %samling time for discrete time
+A=[0 1;1 1];
+B=[0;1];
+C=[1 0];
+D=0;
+plant=c2d(ss(A,B,C,D),Ts);
+
+
+%mpc tools predicted controller
+mpcobj=mpc(plant);
+%control constraints
+mpcobj.MV(1).Min = -4;
+mpcobj.MV(1).Max = 4;
+
+%control horizon
+mpcobj.PredictionHorizon=6;
+mpcobj.ControlHorizon=6;
+%weights
+mpcobj.Weights.ManipulatedVariables = 0.1;
+mpcobj.Weights.ManipulatedVariablesRate = 0;%excute rate of motor
+mpcobj.Weights.OutputVariables =10;
+%termianl constraints
+Y = struct('Weight',[],'Min',[-0],'Max',[0]);
+U = struct('Weight',[],'Min',[],'Max',[]);
+setterminal(mpcobj,Y,U);
+
+x = mpcstate(mpcobj);
+x.plant=[1.2,-0.2]';
+
+
+%
+range=generateExplicitRange(mpcobj);
+
+%2 states and 1disturbance ,as show by mpcstate(mpcObj)
+%matlab create one more row by default
+range.State.Min(:)=[-4 -4 -1]; %plant model, disturbance model, noise model
+range.State.Max(:)=[4 4 1];
+
+range.Reference.Min=-4;
+range.Reference.Max=4;
+
+range.ManipulatedVariable.Min=-4;
+range.ManipulatedVariable.Max=4;
+mpcobjExplicit=generateExplicitMPC(mpcobj,range);
+
+mpcobjExplicit=simplify(mpcobjExplicit,'exact');%find the same and unit the same 
+display(mpcobjExplicit);
+
+xexplicit = mpcstate(mpcobjExplicit);
+xexplicit.Plant=[1.2,-0.2]';
+%Ref 
+r=0;
+t=0:Ts:5;
+N=length(t);
+yexplicit=zeros(N,1);
+xsysexplicit=zeros(N,2);
+uexplicit=zeros(N,1); 
+% xData=zeros(N,2);
+% xData(1,:)=[1.2 -0.2];
+for i=1:N
+%     yexplicit(i)=plant.C* xData(i,:)';
+    yexplicit(i)=plant.C*xexplicit.Plant;
+    xsysexplicit(i,:)=xexplicit.Plant;
+    %run mpc
+    uexplicit(i)=mpcmoveExplicit(mpcobjExplicit,xexplicit,yexplicit(i),r);
+    %update model
+%     xData(i+1,:) = (plant.A*xexplicit.Plant+plant.B*uexplicit(i))';
+
+end
+figure(1)
+subplot(3,1,1)
+plot(t,xsysexplicit(:,1));
+ylabel("x1")
+subplot(3,1,2)
+plot(t',xsysexplicit(:,2));
+ylabel("x2")
+subplot(3,1,3)
+plot(t',uexplicit);
+ylabel("u")
+figure(2)
+plotpars = generatePlotParameters(mpcobjExplicit);
+plotpars.State.Index = [];
+plotpars.State.Value = [];
+plotpars.Reference.Index = 1;
+plotpars.Reference.Value = 0;
+plotpars.ManipulatedVariable.Index = 1;
+plotpars.ManipulatedVariable.Value = 0;
+plotSection(mpcobjExplicit, plotpars);
+axis([-4 4 -4 4]);
+grid
+xlabel('X1');
+ylabel('X2');
