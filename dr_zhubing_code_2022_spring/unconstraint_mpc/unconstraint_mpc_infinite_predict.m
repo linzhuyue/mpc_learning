@@ -22,7 +22,7 @@ RR=0.1*eye(Nc,Nc);%zeros(Nc*m1,n2*Nc);
 K_mpc=[2.4950   12.5106];%I_choose*(Phi'*QQ*Phi+RR)^(-1)*Phi'*QQ*F;
 
 %lqr use to see if K_lqr=K_mpc in unconstrianted infinite mpc 
-[K,S,CLP] = dlqr(A,B,Q,R,N);
+[K,S,CLP] = dlqr(A,B,Q,R);
 
 % Please note, here use the K_mpc as the gain of plant, you can choose
 % others if it can satisfy the discrete stable theory
